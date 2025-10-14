@@ -10,10 +10,14 @@ const nextConfig: NextConfig = {
       use: ["@svgr/webpack"],
     });
 
-    // --- Ignore Docusaurus folder so Next.js doesn't try to compile it ---
+    // --- Safely ignore documentation folder ---
+    const existingIgnored =
+      Array.isArray(config.watchOptions?.ignored) ? config.watchOptions.ignored : [];
+
     config.watchOptions = {
+      ...(config.watchOptions || {}),
       ignored: [
-        ...(config.watchOptions?.ignored || []),
+        ...existingIgnored,
         path.resolve(__dirname, "documentation"),
       ],
     };
@@ -21,7 +25,6 @@ const nextConfig: NextConfig = {
     return config;
   },
 
-  // --- Prevent Next.js from failing on unrelated TS/ESLint errors ---
   eslint: {
     ignoreDuringBuilds: true,
   },
