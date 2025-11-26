@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
+import "bcryptjs";
 
 // Create PostgreSQL connection pool
 const pool = new Pool({

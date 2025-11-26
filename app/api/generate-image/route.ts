@@ -1,4 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
+
+// Helper function to upload to Vercel Blob
+async function uploadToBlob(url: string, filename: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch image from ${url}`);
+    const blob = await response.blob();
+    const { url: blobUrl } = await put(filename, blob, { access: 'public' });
+    return blobUrl;
+  } catch (error) {
+    console.error('Error uploading to blob:', error);
+    return url; // Fallback to original URL if upload fails
+  }
+}
 
 // Helper function to map aspect ratios to Seedream 4 format
 function mapAspectRatioForSeedream(ratio: string): string {
@@ -86,9 +101,13 @@ export async function POST(request: NextRequest) {
       // Poll for results
       const resultData = await pollSeedreamResult(taskId);
       
+      // Upload to Blob
+      const originalUrl = resultData.data.generated[0];
+      const blobUrl = await uploadToBlob(originalUrl, `generated-images/seedream-${taskId}.png`);
+
       // Transform response to match expected format
       return NextResponse.json({
-        image_url: resultData.data.generated[0],
+        image_url: blobUrl,
         task_id: taskId
       });
     }
@@ -139,6 +158,15 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
+
+    // Upload to Blob if output URL exists
+    if (data.output && data.output.length > 0 && data.output[0].url) {
+      const originalUrl = data.output[0].url;
+      const filename = `generated-images/${model}-${Date.now()}.png`;
+      const blobUrl = await uploadToBlob(originalUrl, filename);
+      data.output[0].url = blobUrl;
+    }
+
     return NextResponse.json(data);
 
   } catch (error) {

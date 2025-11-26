@@ -1,4 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
+
+// Helper function to upload to Vercel Blob
+async function uploadToBlob(url: string, filename: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch video from ${url}`);
+    const blob = await response.blob();
+    const { url: blobUrl } = await put(filename, blob, { access: 'public' });
+    return blobUrl;
+  } catch (error) {
+    console.error('Error uploading to blob:', error);
+    return url; // Fallback to original URL if upload fails
+  }
+}
 
 // Helper function to poll Hailuo-2 API for results
 async function pollHailuoResult(taskId: string, resolution: string, maxAttempts = 100): Promise<any> {
@@ -181,9 +196,13 @@ export async function POST(request: NextRequest) {
       // Poll for results
       const resultData = await pollHailuoResult(taskId, resolution);
       
+      // Upload to Blob
+      const originalUrl = resultData.data.generated[0];
+      const blobUrl = await uploadToBlob(originalUrl, `generated-videos/hailuo-${taskId}.mp4`);
+
       // Transform response to match expected format
       return NextResponse.json({
-        video_url: resultData.data.generated[0],
+        video_url: blobUrl,
         task_id: taskId
       });
     }
@@ -235,9 +254,13 @@ export async function POST(request: NextRequest) {
       // Poll for results
       const resultData = await pollKlingResult(taskId);
       
+      // Upload to Blob
+      const originalUrl = resultData.data.generated[0];
+      const blobUrl = await uploadToBlob(originalUrl, `generated-videos/kling-2-5-${taskId}.mp4`);
+
       // Transform response to match expected format
       return NextResponse.json({
-        video_url: resultData.data.generated[0],
+        video_url: blobUrl,
         task_id: taskId
       });
     }
@@ -289,9 +312,13 @@ export async function POST(request: NextRequest) {
       // Poll for results
       const resultData = await pollKlingProResult(taskId);
       
+      // Upload to Blob
+      const originalUrl = resultData.data.generated[0];
+      const blobUrl = await uploadToBlob(originalUrl, `generated-videos/kling-2-1-pro-${taskId}.mp4`);
+
       // Transform response to match expected format
       return NextResponse.json({
-        video_url: resultData.data.generated[0],
+        video_url: blobUrl,
         task_id: taskId
       });
     }
@@ -343,9 +370,13 @@ export async function POST(request: NextRequest) {
       // Poll for results
       const resultData = await pollKlingMasterResult(taskId);
       
+      // Upload to Blob
+      const originalUrl = resultData.data.generated[0];
+      const blobUrl = await uploadToBlob(originalUrl, `generated-videos/kling-2-1-master-${taskId}.mp4`);
+
       // Transform response to match expected format
       return NextResponse.json({
-        video_url: resultData.data.generated[0],
+        video_url: blobUrl,
         task_id: taskId
       });
     }

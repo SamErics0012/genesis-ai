@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { put } from '@vercel/blob';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -43,25 +41,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'avatars');
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
+    // Check if user exists in "user" table to prevent FK violation
+    const userCheck = await client.query('SELECT id FROM "user" WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      console.error(`User ${userId} not found in "user" table`);
+      return NextResponse.json({ 
+        error: 'User record not found. Please try logging out and back in.' 
+      }, { status: 404 });
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const extension = file.name.split('.').pop();
-    const filename = `${userId}_${timestamp}.${extension}`;
-    const filepath = join(uploadsDir, filename);
+    // Upload to Vercel Blob
+    const filename = `avatars/${userId}-${Date.now()}.${file.name.split('.').pop()}`;
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
 
-    // Save file
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filepath, buffer);
-
-    // Generate public URL
-    const fileUrl = `/uploads/avatars/${filename}`;
+    const fileUrl = blob.url;
 
     // Update user profile picture in database
     const updateQuery = `

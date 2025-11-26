@@ -32,6 +32,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PurchaseButton } from "@/components/purchase-button";
 import { useTheme } from "@/components/theme-provider";
 import {
   DropdownMenu,
@@ -366,14 +367,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
             }
           </p>
           {(!subscription || subscription.plan_type === 'free') && (
-            <Button 
-              size="sm" 
-              className="group relative w-full overflow-hidden bg-zinc-900 transition-all duration-200 hover:bg-zinc-900 dark:bg-zinc-100 dark:hover:bg-zinc-100"
-              onClick={() => router.push("/pricing")}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-600 opacity-40 blur transition-opacity duration-500 group-hover:opacity-80" />
-              <span className="relative text-white dark:text-zinc-900">Purchase Plan</span>
-            </Button>
+            <PurchaseButton />
           )}
         </div>
       </div>
@@ -422,7 +416,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
               }`} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="right" className="w-56">
+          <DropdownMenuContent align="end" side="right" className="w-56 z-[1002]">
             <div className="flex items-center gap-3 px-2 py-3">
               {avatarUrl ? (
                 <img
