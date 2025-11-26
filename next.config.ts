@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'randomuser.me',
+        pathname: '/api/portraits/**',
+      },
+    ],
+  },
   webpack(config) {
     // --- Existing SVG loader ---
     config.module.rules.push({

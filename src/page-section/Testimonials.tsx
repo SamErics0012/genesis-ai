@@ -112,6 +112,8 @@ export default function Testimonials() {
             <Image
               src={current.avatar}
               alt={current.name}
+              width={52}
+              height={52}
               className="w-11 md:w-13 h-11 md:h-13 rounded-full object-cover"
             />
             <div className="text-center md:text-left">
