@@ -18,13 +18,13 @@ export function useImageGenerations() {
 
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('generated_images')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/images', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch images');
+      const data = await response.json();
       setImages(data || []);
     } catch (err) {
       console.error('Error fetching images:', err);
@@ -46,16 +46,17 @@ export function useImageGenerations() {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('generated_images')
-        .insert({
-          user_id: session.user.id,
-          ...imageData,
-        })
-        .select()
-        .single();
+      const response = await fetch('/api/images', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(imageData),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to save image');
+      const data = await response.json();
 
       // Add to local state
       setImages((prev) => [data, ...prev]);
@@ -73,12 +74,14 @@ export function useImageGenerations() {
       const imageToDelete = images.find(img => img.id === imageId);
       
       // Delete from database
-      const { error } = await supabase
-        .from('generated_images')
-        .delete()
-        .eq('id', imageId);
+      const response = await fetch(`/api/images?id=${imageId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to delete image');
 
       // Delete from storage if image URL is from Supabase storage
       if (imageToDelete?.image_url && imageToDelete.image_url.includes('supabase')) {

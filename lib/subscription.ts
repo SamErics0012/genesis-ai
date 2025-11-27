@@ -25,7 +25,17 @@ export const IMAGE_MODELS = [
 
 export const VIDEO_MODELS = [
   { name: "Veo 3.1 Fast", iconUrl: "google" },
+  { name: "Veo 3.1", iconUrl: "google" },
+  { name: "Veo 3.1 Fast (Img2Vid)", iconUrl: "google" },
+  { name: "Veo 3.1 (Img2Vid)", iconUrl: "google" },
+  { name: "Sora", iconUrl: "openai" },
+  { name: "Sora (Img2Vid)", iconUrl: "openai" },
+  { name: "Sora 2 Pro", iconUrl: "openai" },
+  { name: "Sora 2 Pro (Img2Vid)", iconUrl: "openai" },
   { name: "Hailuo-02", iconUrl: "hailuo" },
+  { name: "Kling 2.5 PRO", iconUrl: "kling" },
+  { name: "Kling v2.1 PRO", iconUrl: "kling" },
+  { name: "Kling v2.1 Master", iconUrl: "kling" },
   { name: "Luma Ray 2", iconUrl: "luma" },
 ];
 
@@ -38,15 +48,15 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
   },
   premium: {
     imageGeneration: true,
-    videoGeneration: false,
+    videoGeneration: true,
     unlimited: true,
-    models: IMAGE_MODELS.map(m => m.name), // All image models
+    models: [...IMAGE_MODELS.map(m => m.name), ...VIDEO_MODELS.map(m => m.name)],
   },
   ultra: {
     imageGeneration: true,
     videoGeneration: true,
     unlimited: true,
-    models: VIDEO_MODELS.map(m => m.name), // Only video models
+    models: [...IMAGE_MODELS.map(m => m.name), ...VIDEO_MODELS.map(m => m.name)],
   },
 };
 
@@ -61,9 +71,21 @@ export const PLAN_PRICES = {
   },
 };
 
-export async function getUserSubscription(userId: string): Promise<Subscription | null> {
+export async function getUserSubscription(userId: string, token?: string): Promise<Subscription | null> {
   try {
-    const response = await fetch(`/api/subscription?userId=${encodeURIComponent(userId)}`);
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let url = `/api/subscription?userId=${encodeURIComponent(userId)}`;
+    if (typeof window === 'undefined') {
+      // Server-side: use absolute URL
+      const baseUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000';
+      // Ensure no double slashes if baseUrl ends with /
+      const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+      url = `${cleanBaseUrl}${url}`;
+    }
+
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       console.error('Failed to fetch subscription:', response.statusText);

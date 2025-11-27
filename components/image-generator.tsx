@@ -40,16 +40,15 @@ const getIconUrl = (iconName: string, theme: string) => {
 };
 
 const imageModels = [
-  { name: "Flux Ultra Raw 1.1", slug: "flux-ultra-raw-1-1", iconUrl: "flux", badge: null, hasApi: true },
-  { name: "Flux Kontext Pro", slug: "flux-kontext-pro", iconUrl: "flux", badge: null, hasApi: true },
-  { name: "Flux Kontext Max", slug: "flux-kontext-max", iconUrl: "flux", badge: null, hasApi: true },
-  { name: "Google Nano Banana", slug: "google-nano-banana", iconUrl: "google", badge: null, hasApi: true },
-  { name: "Google Imagen-3", slug: "google-imagen-3", iconUrl: "google", badge: null, hasApi: true },
-  { name: "Google Imagen-4", slug: "google-imagen-4", iconUrl: "google", badge: null, hasApi: true },
-  { name: "Seedream 4", slug: "seedream-4", iconUrl: "freepik", badge: null, hasApi: true },
-  { name: "OpenAI GPT-Image", slug: "openai-gpt-image", iconUrl: "openai", badge: null, hasApi: true },
-  { name: "Runway Gen 4 Image", slug: "runway-gen-4-image", iconUrl: "runway", badge: null, hasApi: true },
-  { name: "Ideogram V3", slug: "ideogram-v3", iconUrl: "ideogram", badge: null, hasApi: true },
+  { name: "Flux Ultra Raw 1.1", slug: "flux-ultra-raw-1-1", iconUrl: "flux", badge: "PRO", hasApi: true },
+  { name: "Flux Kontext Pro", slug: "flux-kontext-pro", iconUrl: "flux", badge: "PRO", hasApi: true },
+  { name: "Flux Kontext Max", slug: "flux-kontext-max", iconUrl: "flux", badge: "PRO", hasApi: true },
+  { name: "Google Nano Banana", slug: "google-nano-banana", iconUrl: "google", badge: "PRO", hasApi: true },
+  { name: "Google Imagen-3", slug: "google-imagen-3", iconUrl: "google", badge: "PRO", hasApi: true },
+  { name: "Google Imagen-4", slug: "google-imagen-4", iconUrl: "google", badge: "PRO", hasApi: true },
+  { name: "OpenAI GPT-Image", slug: "openai-gpt-image", iconUrl: "openai", badge: "PRO", hasApi: true },
+  { name: "Runway Gen 4 Image", slug: "runway-gen-4-image", iconUrl: "runway", badge: "PRO", hasApi: true },
+  { name: "Ideogram V3", slug: "ideogram-v3", iconUrl: "ideogram", badge: "PRO", hasApi: true },
 ];
 
 interface ImageGeneratorProps {
@@ -92,10 +91,6 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
     if (selectedModel.slug === "ideogram-v3") {
       return ["1:1", "16:9", "4:3", "3:4"];
     }
-    // Seedream 4 supports all standard ratios
-    if (selectedModel.slug === "seedream-4") {
-      return ["1:1", "16:9", "9:16", "4:3", "3:4"];
-    }
     return ["1:1", "16:9", "9:16", "4:3", "3:4"];
   };
   
@@ -115,7 +110,7 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
     const checkSubscription = async () => {
       if (session?.user?.id) {
         setSubscriptionLoading(true);
-        const userSubscription = await getUserSubscription(session.user.id);
+        const userSubscription = await getUserSubscription(session.user.id, session.access_token);
         setSubscription(userSubscription);
         setSubscriptionLoading(false);
       } else {
@@ -224,7 +219,8 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
         const response = await fetch('/api/generate-image', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify({
             prompt: prompt,
@@ -244,7 +240,7 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
         // Handle different response formats
         let imageUrl: string | null = null;
         
-        // Seedream 4 format: { image_url: "...", task_id: "..." }
+        // Standard format: { image_url: "...", task_id: "..." }
         if (data.image_url) {
           imageUrl = data.image_url;
         }

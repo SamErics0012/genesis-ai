@@ -23,6 +23,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON subscriptions;
 CREATE TRIGGER update_subscriptions_updated_at
     BEFORE UPDATE ON subscriptions
     FOR EACH ROW
@@ -38,12 +39,15 @@ WHERE id NOT IN (SELECT user_id FROM subscriptions WHERE user_id IS NOT NULL);
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies (simplified for better-auth)
+DROP POLICY IF EXISTS "Users can view their own subscription" ON subscriptions;
 CREATE POLICY "Users can view their own subscription" ON subscriptions
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can update their own subscription" ON subscriptions;
 CREATE POLICY "Users can update their own subscription" ON subscriptions
     FOR UPDATE USING (true);
 
+DROP POLICY IF EXISTS "Users can insert their own subscription" ON subscriptions;
 CREATE POLICY "Users can insert their own subscription" ON subscriptions
     FOR INSERT WITH CHECK (true);
 

@@ -15,6 +15,7 @@ const pool = new Pool({
 
 async function migrate() {
   const client = await pool.connect();
+  client.on('notice', (msg) => console.log('NOTICE:', msg.message));
   
   try {
     console.log("🚀 Starting database migration...");

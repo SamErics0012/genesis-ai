@@ -53,24 +53,28 @@ CREATE INDEX IF NOT EXISTS idx_profile_pictures_current ON profile_pictures(user
 ALTER TABLE profile_pictures ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own profile pictures
+DROP POLICY IF EXISTS "Users can view own profile pictures" ON profile_pictures;
 CREATE POLICY "Users can view own profile pictures"
   ON profile_pictures
   FOR SELECT
   USING (true); -- Public read for profile pictures
 
 -- Users can insert their own profile pictures
+DROP POLICY IF EXISTS "Users can insert own profile pictures" ON profile_pictures;
 CREATE POLICY "Users can insert own profile pictures"
   ON profile_pictures
   FOR INSERT
   WITH CHECK (true); -- Allow inserts, validation in application
 
 -- Users can update their own profile pictures
+DROP POLICY IF EXISTS "Users can update own profile pictures" ON profile_pictures;
 CREATE POLICY "Users can update own profile pictures"
   ON profile_pictures
   FOR UPDATE
   USING (true);
 
 -- Users can delete their own profile pictures
+DROP POLICY IF EXISTS "Users can delete own profile pictures" ON profile_pictures;
 CREATE POLICY "Users can delete own profile pictures"
   ON profile_pictures
   FOR DELETE

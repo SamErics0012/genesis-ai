@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "@/lib/auth-client";
 import { getUserSubscription } from "@/lib/subscription";
 import { 
+  Home,
   LayoutDashboard, 
   FolderOpen, 
   Library, 
@@ -48,13 +49,13 @@ const getIconUrl = (iconName: string, theme: string) => {
 };
 
 const menuItems = [
+  { icon: Home, label: "Home", active: false },
   { icon: LayoutDashboard, label: "Dashboard", active: false },
   { icon: Library, label: "Media Library", active: false },
 ];
 
 const videoGeneration = [
   { icon: Video, label: "Create Video", active: true, iconUrl: null, badge: undefined },
-  { icon: Circle, label: "Hailuo-02", active: false, iconUrl: "hailuo", badge: undefined },
 ];
 
 const imageGeneration = [
@@ -66,7 +67,6 @@ const imageGeneration = [
   { icon: Circle, label: "Google Nano Banana", active: false, iconUrl: "google", route: "/image-generation/google-nano-banana" },
   { icon: Circle, label: "Google Imagen-3", active: false, iconUrl: "google", route: "/image-generation/google-imagen-3" },
   { icon: Circle, label: "Google Imagen-4", active: false, iconUrl: "google", route: "/image-generation/google-imagen-4" },
-  { icon: Circle, label: "Seedream 4", active: false, iconUrl: "bytedance-color", route: "/image-generation/seedream-4" },
   { icon: SparklesIcon, label: "OpenAI GPT-Image", active: false, iconUrl: "openai", route: "/image-generation/openai-gpt-image" },
   { icon: Circle, label: "Runway Gen 4 Image", active: false, iconUrl: "runway", route: "/image-generation/runway-gen-4-image" },
   { icon: Grid3x3, label: "Ideogram V3", active: false, iconUrl: "ideogram", route: "/image-generation/ideogram-v3" },
@@ -153,7 +153,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
     const checkSubscription = async () => {
       if (session?.user?.id) {
         try {
-          const userSubscription = await getUserSubscription(session.user.id);
+          const userSubscription = await getUserSubscription(session.user.id, session.access_token);
           setSubscription(userSubscription);
         } catch (error) {
           console.error('Error fetching subscription:', error);
@@ -170,6 +170,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
 
   // Check if route is active
   const isRouteActive = (route: string) => {
+    if (route === "home") return pathname === "/";
     if (route === "dashboard") return pathname === "/dashboard";
     if (route === "media-library") return pathname === "/dashboard/media-library";
     if (route === "edit-image") return pathname === "/edit-image";
@@ -228,7 +229,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         {/* Main Menu */}
         <div className="space-y-1">
           {menuItems.map((item) => {
-            const route = item.label === "Dashboard" ? "dashboard" : "media-library";
+            const route = item.label === "Home" ? "home" : item.label === "Dashboard" ? "dashboard" : "media-library";
             const active = isRouteActive(route);
             return (
               <Button
@@ -238,7 +239,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
                   isCollapsed ? 'justify-center px-2' : 'justify-start'
                 }`}
                 onClick={() => {
-                  if (item.label === "Dashboard") {
+                  if (item.label === "Home") {
+                    router.push("/");
+                  } else if (item.label === "Dashboard") {
                     router.push("/dashboard");
                   } else if (item.label === "Media Library") {
                     router.push("/dashboard/media-library");

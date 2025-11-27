@@ -1,5 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import { createClient } from '@supabase/supabase-js';
+import { ensureUserExists } from '@/lib/auth-sync';
+import pool from '@/lib/db';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY!
+);
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+);
+
+async function getUser(request: Request) {
+  const authHeader = request.headers.get('Authorization');
+  // Also check for cookie if header is missing (for some clients)
+  // But for now, rely on Authorization header as per other routes
+  if (!authHeader) return null;
+  
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) return null;
+  
+  await ensureUserExists(user);
+  return user;
+}
 
 // Helper function to upload to Vercel Blob
 async function uploadToBlob(url: string, filename: string): Promise<string> {
@@ -58,6 +86,39 @@ async function pollSeedreamResult(taskId: string, maxAttempts = 30): Promise<any
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication
+    const user = await getUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify subscription using PostgreSQL pool (same as /api/subscription)
+    const dbClient = await pool.connect();
+    let subscription: any = null;
+    
+    try {
+      const subResult = await dbClient.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1',
+        [user.id]
+      );
+      subscription = subResult.rows[0] || null;
+      
+      console.log('Image gen - User ID:', user.id);
+      console.log('Image gen - Subscription:', JSON.stringify(subscription));
+    } finally {
+      dbClient.release();
+    }
+    
+    // Allow access if user has active premium/ultra subscription
+    const hasAccess = subscription && 
+      subscription.status === 'active' && 
+      (subscription.plan_type === 'premium' || subscription.plan_type === 'ultra');
+    
+    if (!hasAccess) {
+      console.log('Image gen - Access denied. Status:', subscription?.status, 'Plan:', subscription?.plan_type);
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 });
+    }
+
     const { prompt, aspect_ratio = '1:1', model = 'flux-ultra-raw-1-1' } = await request.json();
 
     if (!prompt) {

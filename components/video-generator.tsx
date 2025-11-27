@@ -40,12 +40,11 @@ const getIconUrl = (iconName: string, theme: string) => {
 };
 
 const videoModels = [
-  { name: "Veo 3.1 Fast", slug: "veo-3-1-fast", iconUrl: "google", duration: "5s-10s", resolution: "720p-1080p", badge: null, hasAudio: true, hasApi: false },
-  { name: "Hailuo-02", slug: "hailuo-02", iconUrl: "hailuo", duration: "6s", resolution: "1080p", badge: null, hasAudio: false, hasApi: true },
-  { name: "Kling 2.5 PRO", slug: "kling-2-5-pro", iconUrl: "kling", duration: "5s-10s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true },
-  { name: "Kling v2.1 PRO", slug: "kling-v2-1-pro", iconUrl: "kling", duration: "5s-10s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true },
-  { name: "Kling v2.1 Master", slug: "kling-v2-1-master", iconUrl: "kling", duration: "5s-10s", resolution: "1080p", badge: "MASTER", hasAudio: false, hasApi: true },
-  { name: "Luma Ray 2", slug: "luma-ray-2", iconUrl: "luma", duration: "5s-10s", resolution: "720p-1080p", badge: null, hasAudio: false, hasApi: false },
+  { name: "Veo 3.1 Fast", slug: "veo-3-1-fast", iconUrl: "google", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+  { name: "Veo 3.1", slug: "veo-3-1", iconUrl: "google", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+  { name: "Sora", slug: "sora", iconUrl: "openai", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+  { name: "Sora 2 Pro", slug: "sora-2-pro", iconUrl: "openai", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+  { name: "Luma Ray 2", slug: "luma-ray-2", iconUrl: "luma", duration: "5s-10s", resolution: "720p-1080p", badge: "PRO", hasAudio: false, hasApi: false, supportsImg2Vid: false },
 ];
 
 export function VideoGenerator() {
@@ -82,16 +81,26 @@ export function VideoGenerator() {
 
   // Get available durations based on model and resolution
   const getAvailableDurations = () => {
-    if (selectedModel.slug === "hailuo-02") {
-      return resolution === "1080p" ? ["6"] : ["6", "10"];
-    } else if (selectedModel.slug === "kling-2-5-pro" || selectedModel.slug === "kling-v2-1-pro" || selectedModel.slug === "kling-v2-1-master") {
-      return ["5", "10"]; // Kling models only support 5s and 10s
+    if (selectedModel.slug.startsWith("veo-3-1")) {
+      return ["4", "6", "8"]; // Veo 3.1 supports 4s, 6s, 8s
+    } else if (selectedModel.slug.startsWith("sora")) {
+      return ["4", "8", "12"]; // Sora supports 4, 8, 12 seconds
     }
     return ["4", "6", "8", "10"];
   };
 
+  // Get available resolutions based on model
+  const getAvailableResolutions = () => {
+    if (selectedModel.slug.startsWith("veo-3-1")) {
+      return ["720p", "1080p"]; // Veo 3.1 supports 720p and 1080p
+    } else if (selectedModel.slug.startsWith("sora")) {
+      return ["720p"]; // Sora only supports 720p
+    }
+    return ["720p", "1080p"];
+  };
+
   const durations = getAvailableDurations();
-  const resolutions = ["768p", "1080p"];
+  const resolutions = getAvailableResolutions();
 
   // Cleanup stale jobs on mount
   useEffect(() => {
@@ -105,7 +114,7 @@ export function VideoGenerator() {
     const checkSubscription = async () => {
       if (session?.user?.id) {
         setSubscriptionLoading(true);
-        const userSubscription = await getUserSubscription(session.user.id);
+        const userSubscription = await getUserSubscription(session.user.id, session.access_token);
         setSubscription(userSubscription);
         setSubscriptionLoading(false);
       } else {
@@ -125,19 +134,24 @@ export function VideoGenerator() {
     }
   }, [modelSlug]);
 
-  // Reset duration when resolution changes for Hailuo-02
+  // Reset duration when switching models
   useEffect(() => {
-    if (selectedModel.slug === "hailuo-02" && resolution === "1080p" && duration !== "6") {
-      setDuration("6");
+    // Reset duration for Veo models
+    if (selectedModel.slug.startsWith("veo-3-1") && !["4", "6", "8"].includes(duration)) {
+      setDuration("8");
     }
-  }, [resolution, selectedModel.slug]);
-
-  // Reset duration when switching to Kling models if current duration is not supported
-  useEffect(() => {
-    if ((selectedModel.slug === "kling-2-5-pro" || selectedModel.slug === "kling-v2-1-pro" || selectedModel.slug === "kling-v2-1-master") && !["5", "10"].includes(duration)) {
-      setDuration("5");
+    // Reset duration for Sora models
+    if (selectedModel.slug.startsWith("sora") && !["4", "8", "12"].includes(duration)) {
+      setDuration("4");
     }
   }, [selectedModel.slug, duration]);
+
+  // Reset resolution when switching to Sora models (only 720p supported)
+  useEffect(() => {
+    if (selectedModel.slug.startsWith("sora") && resolution !== "720p") {
+      setResolution("720p");
+    }
+  }, [selectedModel.slug, resolution]);
 
   const handleModelChange = (model: typeof videoModels[0]) => {
     setSelectedModel(model);
@@ -171,7 +185,7 @@ export function VideoGenerator() {
   };
 
   const handleImageClick = () => {
-    if (selectedModel.slug === "hailuo-02" || selectedModel.slug === "kling-2-5-pro" || selectedModel.slug === "kling-v2-1-pro" || selectedModel.slug === "kling-v2-1-master") {
+    if (selectedModel.supportsImg2Vid) {
       fileInputRef.current?.click();
     }
   };
@@ -209,8 +223,7 @@ export function VideoGenerator() {
       return;
     }
 
-    // Kling 2.5 PRO supports both text-to-video and image-to-video modes
-    // No validation needed - image is optional
+    // No validation needed - image is optional for img2vid models
 
     // Check subscription access
     if (!canAccessFeature(subscription, 'videoGeneration')) {
@@ -241,26 +254,22 @@ export function VideoGenerator() {
           model: selectedModel.slug
         };
 
-        // Only add resolution for models that support it (not Kling models)
-        if (selectedModel.slug !== "kling-2-5-pro" && selectedModel.slug !== "kling-v2-1-pro" && selectedModel.slug !== "kling-v2-1-master") {
-          requestBody.resolution = resolution;
-        }
+        // Add resolution for models that support it
+        // Veo and Sora models need resolution
+        requestBody.resolution = resolution;
 
-        // Add image data if uploaded (for image-to-video)
-        if (imageFile && (selectedModel.slug === "hailuo-02" || selectedModel.slug === "kling-2-5-pro" || selectedModel.slug === "kling-v2-1-pro" || selectedModel.slug === "kling-v2-1-master")) {
+        // Add image data if uploaded - automatically switches to img2vid mode
+        if (imageFile && selectedModel.supportsImg2Vid) {
           const base64Image = await convertImageToBase64(imageFile);
-          if (selectedModel.slug === "hailuo-02") {
-            requestBody.first_frame_image = base64Image;
-          } else if (selectedModel.slug === "kling-2-5-pro" || selectedModel.slug === "kling-v2-1-pro" || selectedModel.slug === "kling-v2-1-master") {
-            requestBody.image = base64Image;
-          }
+          requestBody.image = base64Image;
+          requestBody.isImg2Vid = true; // Flag to tell API to use img2vid model
         }
-        // For Kling text-to-video mode, don't send image parameter at all
 
         const response = await fetch('/api/generate-video', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify(requestBody)
         });
@@ -476,7 +485,7 @@ export function VideoGenerator() {
           <div className="flex flex-col items-center">
             <div 
               className={`flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
-                (selectedModel.slug === "hailuo-02" || selectedModel.slug === "kling-2-5-pro" || selectedModel.slug === "kling-v2-1-pro" || selectedModel.slug === "kling-v2-1-master")
+                selectedModel.supportsImg2Vid
                   ? "border-border bg-muted/50 hover:border-primary hover:bg-muted" 
                   : "border-muted bg-muted/20 cursor-not-allowed"
               }`}
@@ -504,7 +513,7 @@ export function VideoGenerator() {
                   <Upload className="mb-1 h-5 w-5 text-muted-foreground" />
                   <span className="text-xs font-medium text-foreground">Start frame</span>
                   <span className="text-xs text-muted-foreground">
-                    {(selectedModel.slug === "hailuo-02" || selectedModel.slug === "kling-2-5-pro" || selectedModel.slug === "kling-v2-1-pro" || selectedModel.slug === "kling-v2-1-master") ? "Optional" : "Not supported"}
+                    {selectedModel.supportsImg2Vid ? "Optional" : "Not supported"}
                   </span>
                 </>
               )}
@@ -611,8 +620,8 @@ export function VideoGenerator() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Resolution (only for Hailuo-02) */}
-            {selectedModel.slug === "hailuo-02" && (
+            {/* Resolution (for Veo and Sora models) */}
+            {(selectedModel.slug.startsWith("veo-3-1") || selectedModel.slug.startsWith("sora")) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2">

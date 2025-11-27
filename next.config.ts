@@ -21,12 +21,18 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'api.dicebear.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'randomuser.me',
+      },
     ],
   },
   env: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   },
+  // @ts-ignore
+  turbopack: {},
 };
 
 export default nextConfig;

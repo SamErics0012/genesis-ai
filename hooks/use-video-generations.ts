@@ -28,13 +28,13 @@ export function useVideoGenerations() {
 
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('generated_videos')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/videos', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch videos');
+      const data = await response.json();
       setVideos(data || []);
     } catch (err) {
       console.error('Error fetching videos:', err);
@@ -56,16 +56,17 @@ export function useVideoGenerations() {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('generated_videos')
-        .insert({
-          user_id: session.user.id,
-          ...videoData,
-        })
-        .select()
-        .single();
+      const response = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(videoData),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to save video');
+      const data = await response.json();
 
       // Add to local state
       setVideos((prev) => [data, ...prev]);
@@ -79,12 +80,14 @@ export function useVideoGenerations() {
   // Delete a video
   const deleteVideo = async (videoId: string) => {
     try {
-      const { error } = await supabase
-        .from('generated_videos')
-        .delete()
-        .eq('id', videoId);
+      const response = await fetch(`/api/videos?id=${videoId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to delete video');
 
       // Remove from local state
       setVideos((prev) => prev.filter((vid) => vid.id !== videoId));

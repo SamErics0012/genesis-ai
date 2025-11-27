@@ -1,5 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import { InferenceClient } from '@huggingface/inference';
+import { createClient } from '@supabase/supabase-js';
+import { ensureUserExists } from '@/lib/auth-sync';
+import pool from '@/lib/db';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY!
+);
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+);
+
+async function getUser(request: Request) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) return null;
+  
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) return null;
+  
+  await ensureUserExists(user);
+  return user;
+}
+
+// Use InferenceClient with fal-ai provider as shown in the example
+const hfClient = new InferenceClient(process.env.HF_TOKEN);
 
 // Helper function to upload to Vercel Blob
 async function uploadToBlob(url: string, filename: string): Promise<string> {
@@ -142,7 +172,41 @@ async function pollKlingMasterResult(taskId: string, maxAttempts = 100): Promise
 }
 
 export async function POST(request: NextRequest) {
+  console.log('Video generation request received - v2');
   try {
+    // Verify authentication
+    const user = await getUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify subscription using PostgreSQL pool (same as /api/subscription)
+    const dbClient = await pool.connect();
+    let subscription: any = null;
+    
+    try {
+      const subResult = await dbClient.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1',
+        [user.id]
+      );
+      subscription = subResult.rows[0] || null;
+      
+      console.log('Video gen - User ID:', user.id);
+      console.log('Video gen - Subscription:', JSON.stringify(subscription));
+    } finally {
+      dbClient.release();
+    }
+    
+    // Allow access if user has active premium/ultra subscription
+    const hasAccess = subscription && 
+      subscription.status === 'active' && 
+      (subscription.plan_type === 'premium' || subscription.plan_type === 'ultra');
+    
+    if (!hasAccess) {
+      console.log('Video gen - Access denied. Status:', subscription?.status, 'Plan:', subscription?.plan_type);
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 });
+    }
+
     const { prompt, duration = 6, resolution = '1080p', model = 'hailuo-02', first_frame_image, image } = await request.json();
 
     if (!prompt) {
@@ -150,6 +214,123 @@ export async function POST(request: NextRequest) {
         { error: 'Prompt is required' },
         { status: 400 }
       );
+    }
+
+    // Handle Veo 3.1 and Sora models (Hugging Face with fal-ai provider)
+    // Using InferenceClient exactly as shown in the Python example
+    if (model.startsWith('veo-3-1') || model.startsWith('sora')) {
+      try {
+        let generatedVideoBlob: Blob;
+        let hfModel = '';
+        // Check if image is provided - automatically use img2vid mode
+        const isImageToVideo = !!image;
+
+        // Map slug to HF model ID - automatically select img2vid model if image is provided
+        const textToVideoMap: Record<string, string> = {
+          'veo-3-1-fast': 'akhaliq/veo3.1-fast',
+          'veo-3-1': 'akhaliq/veo3.1-fast',
+          'sora': 'akhaliq/sora-2',
+          'sora-2-pro': 'akhaliq/sora-2',
+        };
+        
+        const img2vidMap: Record<string, string> = {
+          'veo-3-1-fast': 'akhaliq/veo3.1-fast-image-to-video',
+          'veo-3-1': 'akhaliq/veo3.1-fast-image-to-video',
+          'sora': 'akhaliq/sora-2-image-to-video',
+          'sora-2-pro': 'akhaliq/sora-2-image-to-video',
+        };
+
+        // Select the appropriate model based on whether image is provided
+        hfModel = isImageToVideo ? img2vidMap[model] : textToVideoMap[model];
+        if (!hfModel) {
+          throw new Error('Unknown model');
+        }
+
+        console.log(`Video gen - Using model: ${hfModel}, isImageToVideo: ${isImageToVideo}`);
+
+        const HF_TOKEN = process.env.HF_TOKEN;
+        
+        // Create InferenceClient with provider in constructor (matching Python example)
+        const { InferenceClient } = await import('@huggingface/inference');
+        const client = new InferenceClient(HF_TOKEN);
+
+        // Build parameters based on model type
+        const isVeoModel = model.startsWith('veo-3-1');
+        const isSoraModel = model.startsWith('sora');
+        
+        if (isImageToVideo) {
+          if (!image) throw new Error('Image is required for this model');
+          
+          // Convert base64 to Blob
+          const imageBuffer = Buffer.from(image, 'base64');
+          const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+          
+          const params: any = { prompt: prompt };
+          
+          // Add Veo-specific parameters
+          if (isVeoModel) {
+            params.duration = `${duration}s`; // "4s", "6s", "8s"
+            params.resolution = resolution; // "720p", "1080p"
+            params.aspect_ratio = "16:9";
+          }
+          // Add Sora-specific parameters
+          if (isSoraModel) {
+            params.duration = String(duration); // "4", "8", "12"
+            params.resolution = "720p"; // Sora only supports 720p
+            params.aspect_ratio = "16:9";
+          }
+          
+          generatedVideoBlob = await client.imageToVideo({
+            model: hfModel,
+            inputs: imageBlob,
+            parameters: params,
+            provider: "fal-ai",
+          }) as Blob;
+        } else {
+          // Build parameters for text-to-video
+          const params: any = {};
+          
+          // Add Veo-specific parameters
+          if (isVeoModel) {
+            params.duration = `${duration}s`; // "4s", "6s", "8s"
+            params.resolution = resolution; // "720p", "1080p"
+            params.aspect_ratio = "16:9";
+            params.enhance_prompt = true;
+            params.generate_audio = true;
+          }
+          // Add Sora-specific parameters
+          if (isSoraModel) {
+            params.duration = String(duration); // "4", "8", "12"
+            params.resolution = "720p"; // Sora only supports 720p
+            params.aspect_ratio = "16:9";
+          }
+          
+          // Use textToVideo with provider parameter
+          generatedVideoBlob = await client.textToVideo({
+            model: hfModel,
+            inputs: prompt,
+            parameters: Object.keys(params).length > 0 ? params : undefined,
+            provider: "fal-ai",
+          }) as Blob;
+        }
+
+        // Upload to Vercel Blob
+        const { url: blobUrl } = await put(`generated-videos/${model}-${Date.now()}.mp4`, generatedVideoBlob, { access: 'public' });
+
+        return NextResponse.json({
+          video_url: blobUrl,
+          task_id: `hf-${Date.now()}`
+        });
+
+      } catch (error: any) {
+        console.error('HF Generation Error:', error);
+        
+        const errorMessage = error?.message || 'Generation failed';
+        return NextResponse.json(
+          { error: errorMessage },
+          { status: 500 }
+        );
+      }
     }
 
     // Handle Hailuo-2 with polling
