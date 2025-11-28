@@ -137,6 +137,8 @@ export interface ModelOption {
   // Video-specific fields
   duration?: string;
   resolution?: string;
+  hasAudio?: boolean;
+  supportsImg2Vid?: boolean;
 }
 
 export interface ModelCategory {
