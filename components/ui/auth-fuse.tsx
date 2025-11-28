@@ -12,6 +12,15 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 
+// Declare spline-viewer custom element for TypeScript
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'spline-viewer': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { url?: string }, HTMLElement>;
+    }
+  }
+}
+
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -193,7 +202,6 @@ function GenesisLogo() {
 
   return (
     <div className="h-[150px] w-full flex items-center justify-center mb-4 pointer-events-none">
-       {/* @ts-ignore */}
        <spline-viewer 
          url="https://prod.spline.design/Oi9-itSfxF4EhX78/scene.splinecode"
          style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
