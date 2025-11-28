@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
           model: hfModel,
           inputs: prompt,
           provider: "fal-ai",
-        }) as Blob;
+        }) as unknown as Blob;
 
         // Upload to Vercel Blob
         const { url: blobUrl } = await put(`generated-images/${model}-${Date.now()}.png`, imageBlob, { access: 'public' });
