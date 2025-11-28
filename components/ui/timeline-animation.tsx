@@ -6,7 +6,7 @@ import { ElementType, useRef } from "react";
 interface TimelineContentProps {
   as?: ElementType;
   animationNum?: number;
-  timelineRef?: React.RefObject<HTMLElement>;
+  timelineRef?: React.RefObject<HTMLElement | null>;
   customVariants?: {
     visible: (i: number) => any;
     hidden: any;
