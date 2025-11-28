@@ -174,7 +174,6 @@ function groupModelsByBrand(models: ModelOption[]): ModelCategory[] {
     leonardo: "Leonardo AI",
     recraft: "Recraft",
     reve: "Reve",
-    minimax: "MiniMax",
     luma: "Luma",
     kwaivgI: "Kling AI",
     "meituan-longcat": "Meituan",
