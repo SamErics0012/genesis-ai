@@ -27,7 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ModelSelector } from "@/components/ui/model-selector";
+import { ModelSelector, ModelOption } from "@/components/ui/model-selector";
 import { ErrorDialog } from "@/components/error-dialog";
 import { useTheme } from "@/components/theme-provider";
 import { useRouter, useParams } from "next/navigation";
@@ -85,7 +85,7 @@ export function VideoGenerator() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { videos, saveVideo, isLoading: videosLoading } = useVideoGenerations();
   
-  const [selectedModel, setSelectedModel] = useState(() => {
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(() => {
     const model = videoModels.find(m => m.slug === modelSlug);
     return model || videoModels[0];
   });
@@ -194,7 +194,7 @@ export function VideoGenerator() {
     }
   }, [selectedModel.slug, resolution]);
 
-  const handleModelChange = (model: typeof videoModels[0]) => {
+  const handleModelChange = (model: ModelOption) => {
     setSelectedModel(model);
     window.history.replaceState(null, '', `/video-generation/${model.slug}`);
   };

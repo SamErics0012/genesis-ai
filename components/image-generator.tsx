@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ModelSelector } from "@/components/ui/model-selector";
+import { ModelSelector, ModelOption } from "@/components/ui/model-selector";
 import {
   Dialog,
   DialogContent,
@@ -84,7 +84,7 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
   const params = useParams();
   const { images, saveImage, isLoading: imagesLoading } = useImageGenerations();
   
-  const [selectedModel, setSelectedModel] = useState(() => {
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(() => {
     const model = imageModels.find(m => m.slug === modelSlug);
     return model || imageModels[0]; // Default to Flux Ultra Raw
   });
@@ -188,7 +188,7 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
     }
   };
 
-  const handleModelChange = (model: typeof imageModels[0]) => {
+  const handleModelChange = (model: ModelOption) => {
     setSelectedModel(model);
     // If switching to OpenAI GPT-Image and current aspect ratio is not supported, reset to 1:1
     if (model.slug === "openai-gpt-image" && !["1:1", "4:3", "3:4"].includes(aspectRatio)) {
