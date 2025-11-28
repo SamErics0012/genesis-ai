@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -26,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ModelSelector } from "@/components/ui/model-selector";
 import { ErrorDialog } from "@/components/error-dialog";
 import { useTheme } from "@/components/theme-provider";
 import { useRouter, useParams } from "next/navigation";
@@ -45,6 +47,33 @@ const videoModels = [
   { name: "Sora", slug: "sora", iconUrl: "openai", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
   { name: "Sora 2 Pro", slug: "sora-2-pro", iconUrl: "openai", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
   { name: "Luma Ray 2", slug: "luma-ray-2", iconUrl: "luma", duration: "5s-10s", resolution: "720p-1080p", badge: "PRO", hasAudio: false, hasApi: false, supportsImg2Vid: false },
+  
+  // Fal AI - Kling
+  { name: "Kling 2.5 Turbo Pro", slug: "fal-ai/kling-video/v2.5-turbo/pro", iconUrl: "kwaivgI", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "Kling 2.5 Standard", slug: "fal-ai/kling-video/v2.5/standard", iconUrl: "kwaivgI", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+  { name: "Kling 2.5 Pro", slug: "fal-ai/kling-video/v2.5/pro", iconUrl: "kwaivgI", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+  { name: "Kling 1.5 Pro", slug: "fal-ai/kling-video/v1.5/pro", iconUrl: "kwaivgI", duration: "5s", resolution: "1080p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+
+  // Fal AI - MiniMax
+  { name: "MiniMax Hailuo 02 Standard", slug: "fal-ai/minimax/hailuo-02/standard", iconUrl: "minimax", duration: "6s", resolution: "768p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+
+  // Hugging Face - Wan AI
+  { name: "Wan 2.2 T2V A14B", slug: "Wan-AI/Wan2.2-T2V-A14B", iconUrl: "Wan-AI", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "Wan 2.2 TI2V 5B", slug: "Wan-AI/Wan2.2-TI2V-5B", iconUrl: "Wan-AI", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: true },
+  { name: "Wan 2.1 T2V 1.3B", slug: "Wan-AI/Wan2.1-T2V-1.3B", iconUrl: "Wan-AI", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "Wan 2.2 T2V A14B Diffusers", slug: "Wan-AI/Wan2.2-T2V-A14B-Diffusers", iconUrl: "Wan-AI", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "Wan 2.1 T2V 14B", slug: "Wan-AI/Wan2.1-T2V-14B", iconUrl: "Wan-AI", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  
+  // Hugging Face - Lightricks
+  { name: "LTX Video 0.9.7 Distilled", slug: "Lightricks/LTX-Video-0.9.7-distilled", iconUrl: "Lightricks", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "LTX Video 0.9.5", slug: "Lightricks/LTX-Video-0.9.5", iconUrl: "Lightricks", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "LTX Video 0.9.7 Dev", slug: "Lightricks/LTX-Video-0.9.7-dev", iconUrl: "Lightricks", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  
+  // Hugging Face - Others
+  { name: "LongCat Video", slug: "meituan-longcat/LongCat-Video", iconUrl: "meituan-longcat", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "Hunyuan Video", slug: "tencent/HunyuanVideo", iconUrl: "tencent", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "Mochi 1 Preview", slug: "genmo/mochi-1-preview", iconUrl: "genmo", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
+  { name: "CogVideoX 5b", slug: "zai-org/CogVideoX-5b", iconUrl: "zai-org", duration: "5s", resolution: "720p", badge: "PRO", hasAudio: false, hasApi: true, supportsImg2Vid: false },
 ];
 
 export function VideoGenerator() {
@@ -85,6 +114,10 @@ export function VideoGenerator() {
       return ["4", "6", "8"]; // Veo 3.1 supports 4s, 6s, 8s
     } else if (selectedModel.slug.startsWith("sora")) {
       return ["4", "8", "12"]; // Sora supports 4, 8, 12 seconds
+    } else if (selectedModel.slug.startsWith("fal-ai/kling")) {
+      return ["5", "10"]; // Kling supports 5s, 10s
+    } else if (selectedModel.slug.startsWith("fal-ai/minimax")) {
+      return ["6", "10"]; // MiniMax supports 6s, 10s
     }
     return ["4", "6", "8", "10"];
   };
@@ -143,6 +176,14 @@ export function VideoGenerator() {
     // Reset duration for Sora models
     if (selectedModel.slug.startsWith("sora") && !["4", "8", "12"].includes(duration)) {
       setDuration("4");
+    }
+    // Reset duration for Kling models
+    if (selectedModel.slug.startsWith("fal-ai/kling") && !["5", "10"].includes(duration)) {
+      setDuration("5");
+    }
+    // Reset duration for MiniMax models
+    if (selectedModel.slug.startsWith("fal-ai/minimax") && !["6", "10"].includes(duration)) {
+      setDuration("6");
     }
   }, [selectedModel.slug, duration]);
 
@@ -554,54 +595,13 @@ export function VideoGenerator() {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <img src={getIconUrl(selectedModel.iconUrl, theme)} alt={selectedModel.name} className="h-5 w-5" />
-                  <span className="font-semibold">{selectedModel.name}</span>
-                  {selectedModel.hasAudio && (
-                    <Volume2 className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-80">
-                {videoModels.map((model) => (
-                  <DropdownMenuItem
-                    key={model.name}
-                    onClick={() => handleModelChange(model)}
-                    className="flex items-center gap-3 p-3"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted p-2">
-                      <img src={getIconUrl(model.iconUrl, theme)} alt={model.name} className="h-full w-full object-contain" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{model.name}</span>
-                        {model.badge && (
-                          <Badge className="bg-purple-600 text-xs">{model.badge}</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {model.resolution && (
-                          <span className="flex items-center gap-1">
-                            <Monitor className="h-3 w-3" />
-                            {model.resolution}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {model.duration}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedModel.name === model.name && (
-                      <Check className="h-4 w-4 text-primary" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ModelSelector
+              models={videoModels}
+              selectedModel={selectedModel}
+              onModelChange={handleModelChange}
+              theme={theme}
+              showDetails={true}
+            />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -652,21 +652,14 @@ export function VideoGenerator() {
               </Badge>
             )}
             
-            <Button 
+            <RainbowButton 
               onClick={handleGenerate}
               disabled={isGenerating || subscriptionLoading}
-              className="group relative gap-2 overflow-hidden bg-zinc-900 px-6 transition-all duration-200 hover:bg-zinc-900 dark:bg-zinc-100 dark:hover:bg-zinc-100"
+              className="gap-2 px-6"
             >
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-600 opacity-40 blur transition-opacity duration-500 group-hover:opacity-80" />
-            
-            <div className="relative flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-white dark:text-zinc-900" />
-              <span className="text-white dark:text-zinc-900">
-                {isGenerating ? "Generating..." : "Generate"}
-              </span>
-              <span className="ml-1 text-xs text-white/80 dark:text-zinc-900/80">34</span>
-            </div>
-          </Button>
+              <Sparkles className="h-4 w-4" />
+              <span>{isGenerating ? "Generating..." : "Generate"}</span>
+            </RainbowButton>
           </div>
         </div>
       </div>

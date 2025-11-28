@@ -84,6 +84,47 @@ async function pollSeedreamResult(taskId: string, maxAttempts = 30): Promise<any
   throw new Error('Polling timeout - image generation took too long');
 }
 
+// Helper function to poll Fal.ai API for results
+async function pollFalResult(requestId: string, falKey: string, queuePath: string = 'fal-ai/recraft', maxAttempts = 30): Promise<any> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const response = await fetch(`https://queue.fal.run/${queuePath}/requests/${requestId}/status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Key ${falKey}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Fal.ai polling failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.status === 'COMPLETED') {
+      // Fetch the final result
+      const resultResponse = await fetch(`https://queue.fal.run/${queuePath}/requests/${requestId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Key ${falKey}`
+        }
+      });
+      
+      if (!resultResponse.ok) {
+        throw new Error(`Fal.ai result fetch failed: ${resultResponse.status}`);
+      }
+      
+      return await resultResponse.json();
+    } else if (data.status === 'FAILED') {
+      throw new Error(`Fal.ai generation failed: ${data.error || 'Unknown error'}`);
+    }
+
+    // Wait 1 second before next poll
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  throw new Error('Fal.ai polling timeout');
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
@@ -173,15 +214,275 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Map model slugs to API endpoints
+    // Handle Together AI models (FLUX.2 Flex)
+    if (model === 'flux-2-flex') {
+      const togetherResponse = await fetch('https://api.together.xyz/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'black-forest-labs/FLUX.2-flex',
+          prompt: prompt,
+          steps: 10,
+          n: 1
+        })
+      });
+
+      if (!togetherResponse.ok) {
+        const errorText = await togetherResponse.text();
+        console.error('Together AI Error:', errorText);
+        return NextResponse.json(
+          { error: `Together AI error: ${togetherResponse.status}` },
+          { status: togetherResponse.status }
+        );
+      }
+
+      const togetherData = await togetherResponse.json();
+      
+      // Together AI returns { data: [{ url: "..." }] }
+      if (togetherData.data && togetherData.data.length > 0 && togetherData.data[0].url) {
+        const originalUrl = togetherData.data[0].url;
+        const blobUrl = await uploadToBlob(originalUrl, `generated-images/flux-2-flex-${Date.now()}.png`);
+        return NextResponse.json({
+          image_url: blobUrl,
+          task_id: `together-${Date.now()}`
+        });
+      }
+      
+      return NextResponse.json({ error: 'No image generated' }, { status: 500 });
+    }
+
+    // Handle HuggingFace models (Qwen Image, FLUX.2 Dev)
+    if (model === 'qwen-image' || model === 'flux-2-dev') {
+      const { InferenceClient } = await import('@huggingface/inference');
+      const client = new InferenceClient(process.env.HF_TOKEN);
+
+      const hfModelMap: Record<string, string> = {
+        'qwen-image': 'Qwen/Qwen-Image',
+        'flux-2-dev': 'black-forest-labs/FLUX.2-dev'
+      };
+
+      const hfModel = hfModelMap[model];
+      
+      try {
+        const imageBlob = await client.textToImage({
+          model: hfModel,
+          inputs: prompt,
+          provider: "fal-ai",
+        }) as Blob;
+
+        // Upload to Vercel Blob
+        const { url: blobUrl } = await put(`generated-images/${model}-${Date.now()}.png`, imageBlob, { access: 'public' });
+
+        return NextResponse.json({
+          image_url: blobUrl,
+          task_id: `hf-${Date.now()}`
+        });
+      } catch (error: any) {
+        console.error('HuggingFace Error:', error);
+        return NextResponse.json(
+          { error: error?.message || 'HuggingFace generation failed' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Handle Fal.ai models (Recraft V3)
+    if (model === 'recraft-v3') {
+      const FAL_KEY = process.env.FAL_KEY || '3a4fe662-5eac-4604-af38-037d59e2a31c:d877139d891cf1180358b5cf4ba8f314';
+      
+      const falResponse = await fetch('https://queue.fal.run/fal-ai/recraft/v3/text-to-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          image_size: aspect_ratio === '1:1' ? 'square_hd' : 
+                     aspect_ratio === '16:9' ? 'landscape_16_9' : 
+                     aspect_ratio === '9:16' ? 'portrait_16_9' : 
+                     aspect_ratio === '4:3' ? 'landscape_4_3' : 
+                     aspect_ratio === '3:4' ? 'portrait_4_3' : 'square_hd'
+        })
+      });
+
+      if (!falResponse.ok) {
+        const errorText = await falResponse.text();
+        console.error('Fal.ai Error:', errorText);
+        return NextResponse.json(
+          { error: `Fal.ai error: ${falResponse.status}` },
+          { status: falResponse.status }
+        );
+      }
+
+      const falData = await falResponse.json();
+      const requestId = falData.request_id;
+
+      // Poll for results
+      const resultData = await pollFalResult(requestId, FAL_KEY, 'fal-ai/recraft');
+      
+      if (resultData.images && resultData.images.length > 0) {
+        const originalUrl = resultData.images[0].url;
+        const blobUrl = await uploadToBlob(originalUrl, `generated-images/${model}-${Date.now()}.png`);
+        return NextResponse.json({
+          image_url: blobUrl,
+          task_id: `fal-${requestId}`
+        });
+      }
+      
+      return NextResponse.json({ error: 'No image generated' }, { status: 500 });
+    }
+
+    // Handle Fal.ai models (Reve)
+    if (model === 'reve') {
+      const FAL_KEY = process.env.FAL_KEY || '3a4fe662-5eac-4604-af38-037d59e2a31c:d877139d891cf1180358b5cf4ba8f314';
+      
+      const falResponse = await fetch('https://queue.fal.run/fal-ai/reve/text-to-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          aspect_ratio: aspect_ratio,
+          num_images: 1,
+          output_format: "png"
+        })
+      });
+
+      if (!falResponse.ok) {
+        const errorText = await falResponse.text();
+        console.error('Fal.ai (Reve) Error:', errorText);
+        return NextResponse.json(
+          { error: `Fal.ai error: ${falResponse.status}` },
+          { status: falResponse.status }
+        );
+      }
+
+      const falData = await falResponse.json();
+      const requestId = falData.request_id;
+
+      // Poll for results
+      const resultData = await pollFalResult(requestId, FAL_KEY, 'fal-ai/reve');
+      
+      if (resultData.images && resultData.images.length > 0) {
+        const originalUrl = resultData.images[0].url;
+        const blobUrl = await uploadToBlob(originalUrl, `generated-images/${model}-${Date.now()}.png`);
+        return NextResponse.json({
+          image_url: blobUrl,
+          task_id: `fal-${requestId}`
+        });
+      }
+      
+      return NextResponse.json({ error: 'No image generated' }, { status: 500 });
+    }
+
+    // Handle Fal.ai models (Minimax)
+    if (model === 'minimax-image-01') {
+      const FAL_KEY = process.env.FAL_KEY || '3a4fe662-5eac-4604-af38-037d59e2a31c:d877139d891cf1180358b5cf4ba8f314';
+      
+      const falResponse = await fetch('https://queue.fal.run/fal-ai/minimax/image-01', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          aspect_ratio: aspect_ratio,
+          num_images: 1
+        })
+      });
+
+      if (!falResponse.ok) {
+        const errorText = await falResponse.text();
+        console.error('Fal.ai (Minimax) Error:', errorText);
+        return NextResponse.json(
+          { error: `Fal.ai error: ${falResponse.status}` },
+          { status: falResponse.status }
+        );
+      }
+
+      const falData = await falResponse.json();
+      const requestId = falData.request_id;
+
+      // Poll for results
+      const resultData = await pollFalResult(requestId, FAL_KEY, 'fal-ai/minimax');
+      
+      if (resultData.images && resultData.images.length > 0) {
+        const originalUrl = resultData.images[0].url;
+        const blobUrl = await uploadToBlob(originalUrl, `generated-images/${model}-${Date.now()}.png`);
+        return NextResponse.json({
+          image_url: blobUrl,
+          task_id: `fal-${requestId}`
+        });
+      }
+      
+      return NextResponse.json({ error: 'No image generated' }, { status: 500 });
+    }
+
+    // Handle Infip API models (Leonardo)
+    if (model === 'lucid-origin' || model === 'phoenix') {
+      const INFIP_KEY = process.env.INFIP_API_KEY || 'infip-46fbbfdb';
+      
+      const infipResponse = await fetch('https://api.infip.pro/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${INFIP_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          prompt: prompt,
+          n: 1,
+          size: "1024x1024"
+        })
+      });
+
+      if (!infipResponse.ok) {
+        const errorText = await infipResponse.text();
+        console.error('Infip API Error Status:', infipResponse.status);
+        console.error('Infip API Error Body:', errorText);
+        return NextResponse.json(
+          { error: `Infip API error: ${infipResponse.status} - ${errorText}` },
+          { status: infipResponse.status }
+        );
+      }
+
+      const infipData = await infipResponse.json();
+      console.log('Infip API Success Response:', JSON.stringify(infipData));
+      
+      // Infip returns { data: [{ url: "..." }] }
+      if (infipData.data && infipData.data.length > 0 && infipData.data[0].url) {
+        const originalUrl = infipData.data[0].url;
+        const blobUrl = await uploadToBlob(originalUrl, `generated-images/${model}-${Date.now()}.png`);
+        return NextResponse.json({
+          image_url: blobUrl,
+          task_id: `infip-${Date.now()}`
+        });
+      }
+      
+      return NextResponse.json({ error: 'No image generated' }, { status: 500 });
+    }
+
+    // Map model slugs to DeathPrix API endpoints
     const modelEndpoints: Record<string, string> = {
+      'midjourney': 'https://api.deathprixai.online/image/midjourney/generate',
+      'flux-pro-1-1': 'https://api.deathprixai.online/image/black-forest-labs/flux-pro-1.1',
+      'flux-ultra-1-1': 'https://api.deathprixai.online/image/black-forest-labs/flux-ultra-1.1',
       'flux-ultra-raw-1-1': 'https://api.deathprixai.online/image/black-forest-labs/flux-ultra-raw-1.1',
       'flux-kontext-pro': 'https://api.deathprixai.online/image/black-forest-labs/flux-kontext-pro',
       'flux-kontext-max': 'https://api.deathprixai.online/image/black-forest-labs/flux-kontext-max',
-      'google-nano-banana': 'https://api.deathprixai.online/image/google/nano-banana',
+      'google-nano-banana-base': 'https://api.deathprixai.online/image/google/nano-banana',
+      'google-nano-banana': 'https://api.deathprixai.online/image/google/nano-banana-pro',
       'google-imagen-3': 'https://api.deathprixai.online/image/google/imagen-3',
       'google-imagen-4': 'https://api.deathprixai.online/image/google/imagen-4',
       'runway-gen-4-image': 'https://api.deathprixai.online/image/runway/gen4-image',
+      'adobe-firefly-5': 'https://api.deathprixai.online/image/adobe/firefly-image-5-preview',
       'ideogram-v3': 'https://api.deathprixai.online/image/ideogram/v3',
       'openai-gpt-image': 'https://api.deathprixai.online/image/openai/gpt-image'
     };
@@ -195,6 +496,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const DEATHPRIX_API_KEY = process.env.DEATHPRIX_API_KEY || 'dpx_D4XsRSFxKPYdi0ZzfvFIAlAZu245lkOIB6je6KrNCvg';
+
     const formData = new URLSearchParams();
     formData.append('prompt', prompt);
     formData.append('aspect_ratio', aspect_ratio);
@@ -203,7 +506,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'accept': 'application/json',
-        'X-API-Key': 'dpx_JPL2OOx4v4pIQGC0y1K7syQTiGavCZ6-FCy8R4Se7P0',
+        'X-API-Key': DEATHPRIX_API_KEY,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: formData.toString()
@@ -225,7 +528,10 @@ export async function POST(request: NextRequest) {
       const originalUrl = data.output[0].url;
       const filename = `generated-images/${model}-${Date.now()}.png`;
       const blobUrl = await uploadToBlob(originalUrl, filename);
-      data.output[0].url = blobUrl;
+      return NextResponse.json({
+        image_url: blobUrl,
+        task_id: data.id || `deathprix-${Date.now()}`
+      });
     }
 
     return NextResponse.json(data);

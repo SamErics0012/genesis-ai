@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, 
@@ -23,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ModelSelector } from "@/components/ui/model-selector";
 import {
   Dialog,
   DialogContent,
@@ -40,15 +42,35 @@ const getIconUrl = (iconName: string, theme: string) => {
 };
 
 const imageModels = [
+  // DeathPrix API Models
+  { name: "Midjourney", slug: "midjourney", iconUrl: "midjourney", badge: "PRO", hasApi: true },
+  { name: "Flux Pro 1.1", slug: "flux-pro-1-1", iconUrl: "flux", badge: "PRO", hasApi: true },
+  { name: "Flux Ultra 1.1", slug: "flux-ultra-1-1", iconUrl: "flux", badge: "PRO", hasApi: true },
   { name: "Flux Ultra Raw 1.1", slug: "flux-ultra-raw-1-1", iconUrl: "flux", badge: "PRO", hasApi: true },
   { name: "Flux Kontext Pro", slug: "flux-kontext-pro", iconUrl: "flux", badge: "PRO", hasApi: true },
   { name: "Flux Kontext Max", slug: "flux-kontext-max", iconUrl: "flux", badge: "PRO", hasApi: true },
-  { name: "Google Nano Banana", slug: "google-nano-banana", iconUrl: "google", badge: "PRO", hasApi: true },
+  { name: "Nano Banana", slug: "google-nano-banana-base", iconUrl: "google", badge: "PRO", hasApi: true },
+  { name: "Nano Banana Pro", slug: "google-nano-banana", iconUrl: "google", badge: "PRO", hasApi: true },
   { name: "Google Imagen-3", slug: "google-imagen-3", iconUrl: "google", badge: "PRO", hasApi: true },
   { name: "Google Imagen-4", slug: "google-imagen-4", iconUrl: "google", badge: "PRO", hasApi: true },
-  { name: "OpenAI GPT-Image", slug: "openai-gpt-image", iconUrl: "openai", badge: "PRO", hasApi: true },
   { name: "Runway Gen 4 Image", slug: "runway-gen-4-image", iconUrl: "runway", badge: "PRO", hasApi: true },
+  { name: "Adobe Firefly 5", slug: "adobe-firefly-5", iconUrl: "adobe", badge: "PRO", hasApi: true },
+  { name: "OpenAI GPT-Image", slug: "openai-gpt-image", iconUrl: "openai", badge: "PRO", hasApi: true },
   { name: "Ideogram V3", slug: "ideogram-v3", iconUrl: "ideogram", badge: "PRO", hasApi: true },
+  // Leonardo AI Models (Infip API)
+  { name: "Lucid Origin", slug: "lucid-origin", iconUrl: "leonardo", badge: "PRO", hasApi: true },
+  { name: "Phoenix", slug: "phoenix", iconUrl: "leonardo", badge: "PRO", hasApi: true },
+  // Fal.ai Models
+  { name: "Recraft V3", slug: "recraft-v3", iconUrl: "recraft", badge: "PRO", hasApi: true },
+  // Reve Models
+  { name: "Reve", slug: "reve", iconUrl: "reve", badge: "PRO", hasApi: true },
+  // Minimax Models
+  { name: "Minimax Image 01", slug: "minimax-image-01", iconUrl: "minimax", badge: "PRO", hasApi: true },
+  // Together AI Models
+  { name: "FLUX.2 Flex", slug: "flux-2-flex", iconUrl: "flux", badge: "PRO", hasApi: true },
+  // HuggingFace Models
+  { name: "Qwen Image", slug: "qwen-image", iconUrl: "qwen", badge: "PRO", hasApi: true },
+  { name: "FLUX.2 Dev", slug: "flux-2-dev", iconUrl: "flux", badge: "PRO", hasApi: true },
 ];
 
 interface ImageGeneratorProps {
@@ -275,7 +297,8 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
         }
       } catch (error) {
         console.error('Image generation failed:', error);
-        alert(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        setErrorMessage(error instanceof Error ? error.message : 'Unknown error');
+        setShowErrorDialog(true);
         
         // Mark job as failed
         if (jobId) {
@@ -328,6 +351,38 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
     }
   };
 
+  const handleShare = async (imageUrl: string) => {
+    try {
+      // Try using the Web Share API first (for mobile and supported browsers)
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Check out this AI-generated image!',
+          text: 'Created with Genesis AI',
+          url: imageUrl,
+        });
+      } else {
+        // Fallback: Copy URL to clipboard
+        try {
+          await navigator.clipboard.writeText(imageUrl);
+          alert('Image link copied to clipboard!');
+        } catch (err) {
+          console.warn('Clipboard write failed:', err);
+          // Fallback for when clipboard API is blocked (e.g. in iframe)
+          window.prompt('Copy this link:', imageUrl);
+        }
+      }
+    } catch (error) {
+      // If share was cancelled or failed, try clipboard
+      try {
+        await navigator.clipboard.writeText(imageUrl);
+        alert('Image link copied to clipboard!');
+      } catch (clipboardError) {
+        console.warn('Clipboard write failed:', clipboardError);
+        window.prompt('Copy this link:', imageUrl);
+      }
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Preview Area */}
@@ -370,7 +425,10 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
                     <Download className="h-5 w-5 text-white" />
                   </button>
                   {/* Share Button - Bottom Right */}
-                  <button className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-lg bg-black/80 backdrop-blur-sm transition-all hover:bg-black hover:scale-110">
+                  <button 
+                    onClick={() => handleShare(generatedImage)}
+                    className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-lg bg-black/80 backdrop-blur-sm transition-all hover:bg-black hover:scale-110"
+                  >
                     <Share2 className="h-5 w-5 text-white" />
                   </button>
                 </div>
@@ -461,36 +519,12 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Model Selector */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <img src={getIconUrl(selectedModel.iconUrl, theme)} alt={selectedModel.name} className="h-5 w-5" />
-                  <span className="font-semibold">{selectedModel.name}</span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-80">
-                {imageModels.map((model) => (
-                  <DropdownMenuItem
-                    key={model.name}
-                    onClick={() => handleModelChange(model)}
-                    className="flex items-center gap-3 p-3"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted p-2">
-                      <img src={getIconUrl(model.iconUrl, theme)} alt={model.name} className="h-full w-full object-contain" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{model.name}</span>
-                        {model.badge && (
-                          <Badge className="bg-purple-600 text-xs">{model.badge}</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ModelSelector
+              models={imageModels}
+              selectedModel={selectedModel}
+              onModelChange={handleModelChange}
+              theme={theme}
+            />
 
             {/* Aspect Ratio */}
             <DropdownMenu>
@@ -524,21 +558,14 @@ export function ImageGenerator({ modelSlug }: ImageGeneratorProps) {
               </Badge>
             )}
             
-            <Button 
+            <RainbowButton 
               onClick={handleGenerate}
               disabled={isGenerating || subscriptionLoading}
-              className="group relative gap-2 overflow-hidden bg-zinc-900 px-6 transition-all duration-200 hover:bg-zinc-900 dark:bg-zinc-100 dark:hover:bg-zinc-100 disabled:opacity-50"
+              className="gap-2 px-6"
             >
-            {/* Gradient background effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-600 opacity-40 blur transition-opacity duration-500 group-hover:opacity-80" />
-            
-            {/* Content */}
-            <div className="relative flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-white dark:text-zinc-900" />
-              <span className="text-white dark:text-zinc-900">{isGenerating ? "Generating..." : "Generate"}</span>
-              <span className="ml-1 text-xs text-white/80 dark:text-zinc-900/80">20</span>
-            </div>
-          </Button>
+              <Sparkles className="h-4 w-4" />
+              <span>{isGenerating ? "Generating..." : "Generate"}</span>
+            </RainbowButton>
           </div>
         </div>
       </div>

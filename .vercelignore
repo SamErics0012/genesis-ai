@@ -1,0 +1,11 @@
+SolverCorp-Next
+documentation
+scripts
+*.py
+*.bat
+requirements.txt
+.git
+.DS_Store
+node_modules
+.next
+.vercel

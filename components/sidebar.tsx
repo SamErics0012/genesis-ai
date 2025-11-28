@@ -60,16 +60,23 @@ const videoGeneration = [
 
 const imageGeneration = [
   { icon: Wand2, label: "Edit Image", active: false, iconUrl: null, route: "/edit-image" },
-  { icon: ImagePlus, label: "Create Image", active: false, iconUrl: null, route: "/image-generation/flux-kontext-pro" },
+  { icon: ImagePlus, label: "Create Image", active: false, iconUrl: null, route: "/image-generation/midjourney" },
+  { icon: Circle, label: "Midjourney", active: false, iconUrl: "midjourney", route: "/image-generation/midjourney" },
+  { icon: Zap, label: "Flux Pro 1.1", active: false, iconUrl: "flux", route: "/image-generation/flux-pro-1-1" },
+  { icon: Zap, label: "Flux Ultra 1.1", active: false, iconUrl: "flux", route: "/image-generation/flux-ultra-1-1" },
   { icon: Zap, label: "Flux Ultra Raw 1.1", active: false, iconUrl: "flux", route: "/image-generation/flux-ultra-raw-1-1" },
   { icon: Zap, label: "Flux Kontext Pro", active: false, iconUrl: "flux", route: "/image-generation/flux-kontext-pro" },
   { icon: Zap, label: "Flux Kontext Max", active: false, iconUrl: "flux", route: "/image-generation/flux-kontext-max" },
+  { icon: Zap, label: "FLUX.2 Flex", active: false, iconUrl: "flux", route: "/image-generation/flux-2-flex" },
+  { icon: Zap, label: "FLUX.2 Dev", active: false, iconUrl: "flux", route: "/image-generation/flux-2-dev" },
   { icon: Circle, label: "Google Nano Banana", active: false, iconUrl: "google", route: "/image-generation/google-nano-banana" },
   { icon: Circle, label: "Google Imagen-3", active: false, iconUrl: "google", route: "/image-generation/google-imagen-3" },
   { icon: Circle, label: "Google Imagen-4", active: false, iconUrl: "google", route: "/image-generation/google-imagen-4" },
-  { icon: SparklesIcon, label: "OpenAI GPT-Image", active: false, iconUrl: "openai", route: "/image-generation/openai-gpt-image" },
   { icon: Circle, label: "Runway Gen 4 Image", active: false, iconUrl: "runway", route: "/image-generation/runway-gen-4-image" },
+  { icon: Circle, label: "Adobe Firefly 5", active: false, iconUrl: "adobe", route: "/image-generation/adobe-firefly-5" },
+  { icon: SparklesIcon, label: "OpenAI GPT-Image", active: false, iconUrl: "openai", route: "/image-generation/openai-gpt-image" },
   { icon: Grid3x3, label: "Ideogram V3", active: false, iconUrl: "ideogram", route: "/image-generation/ideogram-v3" },
+  { icon: Circle, label: "Qwen Image", active: false, iconUrl: "qwen", route: "/image-generation/qwen-image" },
 ];
 
 interface SidebarProps {

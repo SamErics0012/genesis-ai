@@ -5,6 +5,9 @@ import NumberFlow from "@number-flow/react";
 import { CheckCheck, Image as ImageIcon, Video as VideoIcon, Sparkles, Zap, Infinity as InfinityIcon, Layers, Play, Film } from "lucide-react";
 import { motion } from "motion/react";
 import { useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const ImageGenVisual = () => (
   <div className="flex gap-2 mb-6 justify-center h-16 items-center">
@@ -214,6 +217,7 @@ const ConcurrencySelector = ({ value, onChange }: { value: number, onChange: (v:
 export default function PricingSection() {
   const [isYearly, setIsYearly] = useState(false);
   const [concurrency, setConcurrency] = useState(1);
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const pricingRef = useRef<HTMLDivElement>(null);
 
   const revealVariants = {
@@ -342,6 +346,7 @@ export default function PricingSection() {
 
               <CardContent className="pt-0">
                 <button
+                  onClick={() => setShowPurchaseDialog(true)}
                   className={`w-full mb-6 p-4 text-xl rounded-xl ${
                     plan.popular
                       ? "bg-gradient-to-t from-blue-500 to-blue-600  shadow-lg shadow-blue-500 border border-blue-400 text-white"

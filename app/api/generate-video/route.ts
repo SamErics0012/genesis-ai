@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { InferenceClient } from '@huggingface/inference';
+import { fal } from "@fal-ai/client";
 import { createClient } from '@supabase/supabase-js';
 import { ensureUserExists } from '@/lib/auth-sync';
 import pool from '@/lib/db';
@@ -214,6 +215,74 @@ export async function POST(request: NextRequest) {
         { error: 'Prompt is required' },
         { status: 400 }
       );
+    }
+
+
+    // Handle Hugging Face models (New)
+    const hfModels = [
+      "meituan-longcat/LongCat-Video",
+      "Wan-AI/Wan2.2-T2V-A14B",
+      "Wan-AI/Wan2.2-TI2V-5B",
+      "Wan-AI/Wan2.1-T2V-1.3B",
+      "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+      "tencent/HunyuanVideo",
+      "genmo/mochi-1-preview",
+      "Lightricks/LTX-Video-0.9.7-distilled",
+      "Wan-AI/Wan2.1-T2V-14B",
+      "zai-org/CogVideoX-5b",
+      "Lightricks/LTX-Video-0.9.5",
+      "Lightricks/LTX-Video-0.9.7-dev"
+    ];
+
+    if (hfModels.includes(model)) {
+      try {
+        const HF_TOKEN = process.env.HF_TOKEN;
+        const { InferenceClient } = await import('@huggingface/inference');
+        const client = new InferenceClient(HF_TOKEN);
+
+        const hfProviderMap: Record<string, "fal-ai" | "wavespeed"> = {
+          "Wan-AI/Wan2.1-T2V-1.3B": "wavespeed",
+          "Wan-AI/Wan2.1-T2V-14B": "wavespeed",
+        };
+        
+        const provider = hfProviderMap[model] || "fal-ai";
+        
+        console.log(`HF gen - Using model: ${model}, provider: ${provider}`);
+
+        let generatedVideoBlob: Blob;
+
+        if (image && model === "Wan-AI/Wan2.2-TI2V-5B") {
+           const imageBuffer = Buffer.from(image, 'base64');
+           const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+           
+           generatedVideoBlob = await client.imageToVideo({
+             model: model,
+             inputs: imageBlob,
+             parameters: { prompt: prompt },
+             provider: provider,
+           }) as Blob;
+        } else {
+           generatedVideoBlob = await client.textToVideo({
+             model: model,
+             inputs: prompt,
+             provider: provider,
+           }) as Blob;
+        }
+
+        const { url: blobUrl } = await put(`generated-videos/${model.replace(/\//g, '-')}-${Date.now()}.mp4`, generatedVideoBlob, { access: 'public' });
+
+        return NextResponse.json({
+          video_url: blobUrl,
+          task_id: `hf-${Date.now()}`
+        });
+
+      } catch (error: any) {
+        console.error('HF Generation Error:', error);
+        return NextResponse.json(
+          { error: error?.message || 'Generation failed' },
+          { status: 500 }
+        );
+      }
     }
 
     // Handle Veo 3.1 and Sora models (Hugging Face with fal-ai provider)
@@ -560,6 +629,63 @@ export async function POST(request: NextRequest) {
         video_url: blobUrl,
         task_id: taskId
       });
+    }
+
+    // Handle Fal AI models
+    if (model.startsWith('fal-ai/')) {
+      try {
+        const isImg2Vid = !!image && image !== "<string>";
+        // Construct endpoint: slug + /text-to-video or /image-to-video
+        const endpoint = `${model}/${isImg2Vid ? 'image-to-video' : 'text-to-video'}`;
+        
+        console.log(`Fal AI gen - Using endpoint: ${endpoint}`);
+
+        const input: any = {
+          prompt: prompt,
+          duration: duration.toString(),
+        };
+
+        // Add model-specific parameters
+        if (model.includes('minimax/hailuo-02')) {
+            input.prompt_optimizer = true;
+            // MiniMax doesn't use aspect_ratio in the example provided
+        } else {
+            // Default for Kling and others
+            input.aspect_ratio = "16:9";
+        }
+
+        if (isImg2Vid) {
+          // Convert raw base64 to Data URI
+          input.image_url = `data:image/png;base64,${image}`;
+        }
+
+        const result: any = await fal.subscribe(endpoint, {
+          input,
+          logs: true,
+        });
+
+        // Check for video URL in result.data (client library structure) or result (serverless library structure)
+        const videoUrl = result.data?.video?.url || result.video?.url;
+
+        if (!videoUrl) {
+           console.error('Fal AI Response:', JSON.stringify(result, null, 2));
+           throw new Error('No video URL in Fal AI response');
+        }
+
+        const blobUrl = await uploadToBlob(videoUrl, `generated-videos/${model.replace(/\//g, '-')}-${Date.now()}.mp4`);
+
+        return NextResponse.json({
+          video_url: blobUrl,
+          task_id: result.requestId || result.request_id || `fal-${Date.now()}`
+        });
+
+      } catch (error: any) {
+        console.error('Fal AI Generation Error:', error);
+        return NextResponse.json(
+          { error: error?.message || 'Generation failed' },
+          { status: 500 }
+        );
+      }
     }
 
     // For other models (future implementation)

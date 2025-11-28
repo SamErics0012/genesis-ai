@@ -81,6 +81,12 @@ export default function Header({ mobileOpen = false, onOpenMobileNav }: HeaderPr
       <div className="hidden lg:flex justify-between items-center gap-[32px]">
         <Switch />
         <Link
+          href="/login"
+          className="text-white hover:text-gray-300 transition-colors font-medium"
+        >
+          Login
+        </Link>
+        <Link
           href="/signup"
           className="flex justify-between items-center gap-[8px] text-white cursor-pointer"
         >

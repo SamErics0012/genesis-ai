@@ -53,17 +53,9 @@ export default function MobileNavigation({ open = false, handleOpen }: MobileNav
           );
         })}
         <Link
-          href="/signup"
+          href="/dashboard"
           onClick={handleOpen}
           className="text-[16px] font-normal text-[#8D8D8D] hover:text-white hover:font-bold transition-all"
-        >
-          Get Started
-        </Link>
-      </nav>
-    </div>
-  );
-}
--all"
         >
           Dashboard
         </Link>
