@@ -12,16 +12,6 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 
-// Declare spline-viewer custom element for TypeScript
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'spline-viewer': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { url?: string }, HTMLElement>;
-    }
-  }
-}
-
-
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
