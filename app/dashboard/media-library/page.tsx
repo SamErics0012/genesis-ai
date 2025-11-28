@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 export default function MediaLibraryPage() {
   const router = useRouter();
 
-  const handleNavigate = (view: "home" | "video-gen" | "image-gen" | "account-settings" | "media-library") => {
+  const handleNavigate = (view: "home" | "video-gen" | "image-gen" | "account-settings" | "media-library" | "edit-image") => {
     if (view === "home") {
       router.push("/dashboard");
     } else if (view === "video-gen") {
@@ -18,6 +18,8 @@ export default function MediaLibraryPage() {
       router.push("/dashboard/settings");
     } else if (view === "media-library") {
       router.push("/dashboard/media-library");
+    } else if (view === "edit-image") {
+      router.push("/edit-image");
     }
   };
 
