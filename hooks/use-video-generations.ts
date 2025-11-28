@@ -30,7 +30,7 @@ export function useVideoGenerations() {
       setIsLoading(true);
       const response = await fetch('/api/videos', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
       if (!response.ok) throw new Error('Failed to fetch videos');
@@ -60,7 +60,7 @@ export function useVideoGenerations() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify(videoData),
       });
@@ -83,7 +83,7 @@ export function useVideoGenerations() {
       const response = await fetch(`/api/videos?id=${videoId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
 

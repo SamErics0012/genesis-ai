@@ -20,7 +20,7 @@ export function useImageGenerations() {
       setIsLoading(true);
       const response = await fetch('/api/images', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
       if (!response.ok) throw new Error('Failed to fetch images');
@@ -50,7 +50,7 @@ export function useImageGenerations() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify(imageData),
       });
@@ -77,7 +77,7 @@ export function useImageGenerations() {
       const response = await fetch(`/api/images?id=${imageId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
 
