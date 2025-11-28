@@ -13,7 +13,7 @@ import { useSession } from "@/lib/auth-client";
 export default function Dashboard() {
   const router = useRouter();
   const { data: session } = useSession();
-  const userName = session?.user?.name || "Creator";
+  const userName = session?.user?.user_metadata?.full_name || "Creator";
 
   const handleNavigate = (view: "home" | "video-gen" | "image-gen" | "account-settings" | "media-library" | "edit-image") => {
     if (view === "home") {
