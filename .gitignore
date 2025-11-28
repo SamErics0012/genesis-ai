@@ -43,3 +43,8 @@ next-env.d.ts
 # tempo
 **/tempobook/dynamic/
 **/tempobook/storyboards/
+
+# nested projects
+SolverCorp-Next/
+documentation/
+
