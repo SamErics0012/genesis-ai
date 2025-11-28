@@ -183,19 +183,11 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
 PasswordInput.displayName = "PasswordInput";
 
 function GenesisLogo() {
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = 'https://unpkg.com/@splinetool/viewer@1.12.4/build/spline-viewer.js';
-    document.head.appendChild(script);
-  }, []);
-
   return (
-    <div className="h-[150px] w-full flex items-center justify-center mb-4 pointer-events-none">
-       <spline-viewer 
-         url="https://prod.spline.design/Oi9-itSfxF4EhX78/scene.splinecode"
-         style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-       ></spline-viewer>
+    <div className="h-[150px] w-full flex items-center justify-center mb-4">
+      <div className="text-4xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
+        Genesis AI
+      </div>
     </div>
   );
 }
